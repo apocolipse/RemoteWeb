@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Swifter",
+        "repositoryURL": "https://github.com/apocolipse/swifter",
+        "state": {
+          "branch": null,
+          "revision": "cceb3b5ddb5afa190a951e40af8e395f1ee22c37",
+          "version": "1.4.7"
+        }
+      },
+      {
+        "package": "SwiftLIRC",
+        "repositoryURL": "git@github.com:apocolipse/SwiftLIRC.git",
+        "state": {
+          "branch": null,
+          "revision": "f3a20337462d0854383ea6642527106c4a3dd676",
+          "version": "0.1.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
