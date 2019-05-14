@@ -7,7 +7,7 @@ let package = Package(
     name: "RemoteWeb",
     dependencies: [
         .package(url: "https://github.com/apocolipse/swifter", from: "1.4.7"),
-        .package(url: "git@github.com:apocolipse/SwiftLIRC.git", from: "0.1.0")
+        .package(url: "git@github.com:apocolipse/SwiftLIRC.git", from: "0.1.1")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.

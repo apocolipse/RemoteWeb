@@ -10,10 +10,10 @@ let loggingQueue = DispatchQueue.global(qos: .background)
 
 let lirc = LIRC(socketPath: RemoteConfig.socketPath)
 
-typealias HTTPMiddleware = ((HttpRequest) -> HttpResponse)
-typealias ThrowableHTTPMiddleware = ((HttpRequest) throws -> HttpResponse)
+typealias RequestHandler = ((HttpRequest) -> HttpResponse)
+typealias ThrowableRequestHandler = ((HttpRequest) throws -> HttpResponse)
 
-let TryingRequestHandler: (@escaping ThrowableHTTPMiddleware) -> HTTPMiddleware = { requestHandler in
+let TryingRequestHandler: (@escaping ThrowableRequestHandler) -> RequestHandler = { requestHandler in
   return {
     do {
       return try requestHandler($0)
@@ -23,9 +23,8 @@ let TryingRequestHandler: (@escaping ThrowableHTTPMiddleware) -> HTTPMiddleware 
   }
 }
 
-let LoggingRequestHandler: (@escaping HTTPMiddleware) -> HTTPMiddleware = { requestHandler in
+let LoggingRequestHandler: (@escaping RequestHandler) -> RequestHandler = { requestHandler in
   return { request in
-    print("Gets here")
     let startTime = Date()
     let response = requestHandler(request)
     let stopTime = Date()
@@ -81,48 +80,30 @@ server.GET["/refresh"] = LoggingRequestHandler { request in
   return .movedPermanently("/")
 }
 
-server.GET["/remotes/:remote"] = LoggingRequestHandler { request in
+server.GET["/remotes/:remote"] = LoggingRequestHandler(TryingRequestHandler{ request in
   guard let param = request.params[":remote"],
         param.contains(".json"),
-        let remote = param.split(separator: ".").first,
-        let r = lirc.remote(named: String(remote)) else { return .notFound }
+        let remote = param.split(separator: ".").first else { return .notFound }
+    let r = try lirc.remote(named: String(remote))
   return .ok(.text(r.commands.map({ $0.name }).json))
+})
+
+
+let SendCommandHandler: (SendType) -> RequestHandler = { sendType in
+  return TryingRequestHandler { request in
+    guard let remoteParam = request.params[":remote"],
+      let commandParam   = request.params[":command"] else { return .notFound }
+    
+    try lirc.remote(named: remoteParam).command(String(commandParam)).send(sendType)
+    return .ok(.text("OK"))
+  }
 }
 
-server.POST["/remotes/:remote/:command"] = LoggingRequestHandler(TryingRequestHandler { request in
-  guard let remoteParam = request.params[":remote"],
-        let commandParam   = request.params[":command"],
-        let remote = lirc.remote(named: remoteParam),
-        let command = remote.command(String(commandParam))  else { return .notFound }
-  
-  try command.send(.once)
-  return .ok(.text("OK"))
-})
+server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
+server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
+server.POST["/remotes/:remote/:command/send_stop"]  = LoggingRequestHandler(SendCommandHandler(.stop))
 
-server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(TryingRequestHandler { request in
-  guard let remoteParam = request.params[":remote"],
-        let commandParam   = request.params[":command"],
-        let remote = lirc.remote(named: remoteParam),
-        let command = remote.command(String(commandParam))  else { return .notFound }
-
-  try command.send(.start)
-  return .ok(.text("OK"))
-})
-
-server.POST["/remotes/:remote/:command/send_stop"] = LoggingRequestHandler(TryingRequestHandler { request in
-  guard let remoteParam = request.params[":remote"],
-        let commandParam   = request.params[":command"],
-        let remote = lirc.remote(named: remoteParam),
-        let command = remote.command(String(commandParam))  else { return .notFound }
-
-  try command.send(.stop)
-  return .ok(.text("OK"))
-})
-
-server.GET["/macros.json"] = LoggingRequestHandler { request in
-  return .ok(.text(RemoteConfig.macros.json))
-}
-
+server.GET["/macros.json"]    = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
 server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { request in
   guard let macroParam = request.params[":macro"],
         let macro = RemoteConfig.macros[macroParam] else { return .notFound }
@@ -130,7 +111,7 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
     if step[0] == "delay" {
       usleep((UInt32(step[1]) ?? 1) * 1000)
     } else {
-      try lirc.remote(named: step[0])?.command(step[1])?.send()
+      try lirc.remote(named: step[0]).command(step[1]).send()
     }
   }
   
@@ -138,17 +119,16 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
 })
 
 
-server.GET["/"] = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
-
-server["js/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME)
-server["css/compiled/:path"] = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME
+server.GET["/"]               = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
+server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME)
+server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME
 
 
 print("Hello, world!")
 
 let semaphore = DispatchSemaphore(value: 0)
 do {
-  try server.start(9999, forceIPv4: RemoteConfig.ServerConfig.forceIPv4, priority: .background)
+  try server.start(RemoteConfig.ServerConfig.port, forceIPv4: RemoteConfig.ServerConfig.forceIPv4, priority: .background)
  print("Server started on 9999")
   semaphore.wait()
 } catch let error{

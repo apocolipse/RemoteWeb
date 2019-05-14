@@ -1,9 +1,9 @@
 import Foundation
 
+
 struct RemoteConfig {
-  
   /// Path to Configuration File.
-  static var configPath = "/home/pi/.lirc_web_config.json" {
+  static var configPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".lirc_web_config.json") {
     didSet {
       config = loadConfig()
     }
@@ -11,22 +11,15 @@ struct RemoteConfig {
   
   private static func loadConfig() -> [String: Any] {
     do {
-      let data = try Data(contentsOf: URL(fileURLWithPath: configPath), options: .mappedIfSafe)
+      let data = try Data(contentsOf: configPath, options: .mappedIfSafe)
       let jsonResult = try JSONSerialization.jsonObject(with: data, options: .mutableLeaves)
       if let jsonResult = jsonResult as? Dictionary<String, Any> {
         return jsonResult
+      } else {
+        print("Error loading \(configPath), invalid")
       }
-    } catch {
-      print("Error loading json")
-      do {
-        let data = try Data(contentsOf: URL(fileURLWithPath: "/var/lib/lirc_web/lirc_web_config.json"), options: .mappedIfSafe)
-        let jsonResult = try JSONSerialization.jsonObject(with: data, options: .mutableLeaves)
-        if let jsonResult = jsonResult as? Dictionary<String, Any> {
-          return jsonResult
-        }
-      } catch {
-        print("Couldn't load any config")
-      }
+    } catch let error {
+      print("Error loading \(configPath), \(error.localizedDescription)")
     }
     return [:]
   }
