@@ -18,7 +18,7 @@ let TryingRequestHandler: (@escaping ThrowableRequestHandler) -> RequestHandler 
     do {
       return try requestHandler($0)
     } catch let error {
-      return .badRequest(.text(error.localizedDescription))
+      return .badRequest(.text("\(error)"))
     }
   }
 }
@@ -124,12 +124,11 @@ server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/
 server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME
 
 
-print("Hello, world!")
 
 let semaphore = DispatchSemaphore(value: 0)
 do {
   try server.start(RemoteConfig.ServerConfig.port, forceIPv4: RemoteConfig.ServerConfig.forceIPv4, priority: .background)
- print("Server started on 9999")
+  print("Swift RemoteWeb Open Source Univeral Remote UI + API has started on \(RemoteConfig.ServerConfig.port) (http).")
   semaphore.wait()
 } catch let error{
   print("Server start error: \(error)")
