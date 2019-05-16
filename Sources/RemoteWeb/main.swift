@@ -120,14 +120,14 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
 
 
 server.GET["/"]               = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
-server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME)
-server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/home/pi/RemoteWeb/compiled")) // TODO: FIXME
+server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME)
+server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
 
 
 
 let semaphore = DispatchSemaphore(value: 0)
 do {
-  try server.start(RemoteConfig.ServerConfig.port, forceIPv4: RemoteConfig.ServerConfig.forceIPv4, priority: .background)
+  try server.start(RemoteConfig.ServerConfig.port, forceIPv4: RemoteConfig.ServerConfig.forceIPv4, priority: .userInitiated)
   print("Swift RemoteWeb Open Source Univeral Remote UI + API has started on \(RemoteConfig.ServerConfig.port) (http).")
   semaphore.wait()
 } catch let error{
