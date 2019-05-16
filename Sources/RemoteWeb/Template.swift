@@ -63,6 +63,7 @@ struct RemoteTemplates {
           footer {
             p { a { href = "/refresh"; inner = "Refresh" }}
             p { a { href = "http://opensourceuniversalremote.com/"; inner = "Powered by Open Source Universal Remote" }}
+            p { a { href = "http://github.com/apocolipse/RemoteWeb"; inner = "Swift version Remote Web by Apocolipse"}}
           }
           script { src = "js/compiled/app.js"; type="text/javascript"; charset="utf-8"}
           
