@@ -6,54 +6,8 @@ import LIRC
 let server = HttpServer()
 var cachedRemotes: String = ""
 let commandQueue = DispatchQueue.global(qos: .background)
-let loggingQueue = DispatchQueue.global(qos: .background)
 
 let lirc = LIRC(socketPath: RemoteConfig.socketPath)
-
-typealias RequestHandler = ((HttpRequest) -> HttpResponse)
-typealias ThrowableRequestHandler = ((HttpRequest) throws -> HttpResponse)
-
-let TryingRequestHandler: (@escaping ThrowableRequestHandler) -> RequestHandler = { requestHandler in
-  return {
-    do {
-      return try requestHandler($0)
-    } catch let error {
-      return .badRequest(.text("\(error)"))
-    }
-  }
-}
-
-let LoggingRequestHandler: (@escaping RequestHandler) -> RequestHandler = { requestHandler in
-  return { request in
-    let startTime = Date()
-    let response = requestHandler(request)
-    let stopTime = Date()
-    defer {
-      loggingQueue.async {
-        let pinfo = ProcessInfo.processInfo
-        let df = (DateFormatter())
-        df.dateFormat = "MMM dd HH:mm:ss"
-        
-        let date = df.string(from: startTime)
-        let host = Info.hostname
-        let proc = pinfo.processName
-        let pid  = pinfo.processIdentifier
-        let addr = request.address ?? "127.0.0.1"
-        let time = stopTime.timeIntervalSince(startTime)
-        let meth = request.method
-        let path = request.path
-        let stat = response.statusCode
-        let len  = response.headers()["Content-Length"] ?? "0"
-        let org  = request.headers["origin"] ?? "\"-\""
-        let hdrs = request.headers["user-agent"] ?? ""
-
-        print("\(date) \(host) \(proc)[\(pid)]: \(addr) - - Time Taken:\(time)  \"\(meth) \(path) HTTP/1.1\" \(stat) \(len) \"\(org)\" \"\(hdrs)\"")
-      }
-    }
-    return response
-  }
-}
-
 
 server.GET["/remotes.json"] = LoggingRequestHandler { request in
   if cachedRemotes != "" && cachedRemotes != "{}" {
@@ -89,21 +43,31 @@ server.GET["/remotes/:remote"] = LoggingRequestHandler(TryingRequestHandler{ req
 })
 
 
+
+// Handler for handing all command send requests
 let SendCommandHandler: (SendType) -> RequestHandler = { sendType in
   return TryingRequestHandler { request in
     guard let remoteParam = request.params[":remote"],
-      let commandParam   = request.params[":command"] else { return .notFound }
-    
-    try lirc.remote(named: remoteParam).command(String(commandParam)).send(sendType)
+          let commandParam   = request.params[":command"] else { return .notFound }
+    var s = sendType
+    if case .once = sendType  {
+      if let countString = request.queryParams.filter({$0.0 == "count" }).first?.0,
+        let count = Int(countString) {
+        s = .count(count)
+      }
+    }
+    try lirc.remote(named: remoteParam).command(String(commandParam)).send(s)
     return .ok(.text("OK"))
   }
 }
 
 server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
 server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
-server.POST["/remotes/:remote/:command/send_stop"]  = LoggingRequestHandler(SendCommandHandler(.stop))
+server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.stop))
 
 server.GET["/macros.json"]    = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
+
+// TODO:  Support more complex macro's, i.e. count
 server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { request in
   guard let macroParam = request.params[":macro"],
         let macro = RemoteConfig.macros[macroParam] else { return .notFound }
@@ -118,12 +82,9 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
   return .ok(.text("OK"))
 })
 
-
 server.GET["/"]               = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
 server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME)
 server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
-
-
 
 let semaphore = DispatchSemaphore(value: 0)
 do {
@@ -131,7 +92,7 @@ do {
   print("Swift RemoteWeb Open Source Univeral Remote UI + API has started on \(RemoteConfig.ServerConfig.port) (http).")
   semaphore.wait()
 } catch let error{
-  print("Server start error: \(error)")
+  print("Server error: \(error)")
   semaphore.signal()
 }
 
