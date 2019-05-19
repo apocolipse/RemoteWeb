@@ -43,28 +43,9 @@ server.GET["/remotes/:remote"] = LoggingRequestHandler(TryingRequestHandler{ req
 })
 
 
-
-// Handler for handing all command send requests
-let SendCommandHandler: (SendType) -> RequestHandler = { sendType in
-  return TryingRequestHandler { request in
-    guard let remoteParam = request.params[":remote"],
-          let commandParam   = request.params[":command"] else { return .notFound }
-    var s = sendType
-    if case .once = sendType  {
-      if let countString = request.queryParams.filter({$0.0 == "count" }).first?.0,
-        let count = Int(countString) {
-        s = .count(count)
-      }
-    }
-    try lirc.remote(named: remoteParam).command(String(commandParam)).send(s)
-    return .ok(.text("OK"))
-  }
-}
-
 server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
 server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
 server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.stop))
-
 server.GET["/macros.json"]    = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
 
 // TODO:  Support more complex macro's, i.e. count
@@ -83,7 +64,7 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
 })
 
 server.GET["/"]               = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
-server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME)
+server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
 server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
 
 let semaphore = DispatchSemaphore(value: 0)
