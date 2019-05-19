@@ -41,7 +41,7 @@ let LoggingRequestHandler: (@escaping RequestHandler) -> RequestHandler = { requ
         if request.queryParams.count > 0 {
           quer = "?" + request.queryParams.map({ "\($0.0)=\($0.1)" }).joined(separator: "&")
         }
-        print("\(date) \(host) \(proc)[\(pid)]: \(addr) - - Time Taken:\(time)  \"\(meth) \(path) HTTP/1.1\" \(stat) \(len) \"\(org)\" \"\(hdrs)\"")
+        print("\(date) \(host) \(proc)[\(pid)]: \(addr) - - Time Taken:\(time)  \"\(meth) \(path)\(quer) HTTP/1.1\" \(stat) \(len) \"\(org)\" \"\(hdrs)\"")
       }
     }
     return response
