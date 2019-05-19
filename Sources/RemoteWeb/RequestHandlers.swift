@@ -57,7 +57,7 @@ let SendCommandHandler: (SendType) -> RequestHandler = { sendType in
       let commandParam   = request.params[":command"] else { return .notFound }
     var s = sendType
     if case .once = sendType  {
-      if let countString = request.queryParams.filter({$0.0 == "count" }).first?.0,
+      if let countString = request.queryParams.filter({$0.0 == "count" }).first?.1,
         let count = Int(countString) {
         s = .count(count)
       }
