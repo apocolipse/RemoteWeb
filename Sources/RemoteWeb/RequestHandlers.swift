@@ -29,7 +29,7 @@ let LoggingRequestHandler: (@escaping RequestHandler) -> RequestHandler = { requ
     let response = requestHandler(request)
     let stopTime = Date()
     defer {
-      loggingQueue.async {
+//      loggingQueue.async {
         let (pinfo, df) = (ProcessInfo.processInfo, DateFormatter())
         df.dateFormat = "MMM dd HH:mm:ss"
         
@@ -37,12 +37,10 @@ let LoggingRequestHandler: (@escaping RequestHandler) -> RequestHandler = { requ
         let (addr, time, meth) = (request.address ?? "127.0.0.1", stopTime.timeIntervalSince(startTime), request.method)
         let (path, stat, len)  = (request.path, response.statusCode, response.headers()["Content-Length"] ?? "0")
         let (org, hdrs)  = (request.headers["origin"] ?? "\"-\"", request.headers["user-agent"] ?? "")
-        var quer = ""
-        if request.queryParams.count > 0 {
-          quer = "?" + request.queryParams.map({ "\($0.0)=\($0.1)" }).joined(separator: "&")
-        }
+        var quer =  (request.queryParams.count > 0) ? "?" + request.queryParams.map({ "\($0.0)=\($0.1)" }).joined(separator: "&") : ""
+        
         print("\(date) \(host) \(proc)[\(pid)]: \(addr) - - Time Taken:\(time)  \"\(meth) \(path)\(quer) HTTP/1.1\" \(stat) \(len) \"\(org)\" \"\(hdrs)\"")
-      }
+//      }
     }
     return response
   }

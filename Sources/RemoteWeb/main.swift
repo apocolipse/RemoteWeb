@@ -7,8 +7,18 @@ let server = HttpServer()
 var cachedRemotes: String = ""
 let commandQueue = DispatchQueue.global(qos: .background)
 
-let lirc = LIRC(socketPath: RemoteConfig.socketPath)
+let lirc = LIRC(host: "10.0.0.10", port: 8765)
 
+// Setup routes, short ones first
+server.GET["/"]                                     = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
+server.GET["js/compiled/:path"]                     = LoggingRequestHandler(shareFilesFromDirectory("/Users/apocolipse/Code/RemoteWeb/compiled")) // TODO: FIXME
+server.GET["css/compiled/:path"]                    = LoggingRequestHandler(shareFilesFromDirectory("/Users/apocolipse/Code/RemoteWeb/compiled")) // TODO: FIXME
+server.GET["/macros.json"]                          = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
+server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
+server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
+server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.stop))
+
+//
 server.GET["/remotes.json"] = LoggingRequestHandler { request in
   if cachedRemotes != "" && cachedRemotes != "{}" {
     return .ok(.text(cachedRemotes))
@@ -34,19 +44,13 @@ server.GET["/refresh"] = LoggingRequestHandler { request in
   return .movedPermanently("/")
 }
 
-server.GET["/remotes/:remote"] = LoggingRequestHandler(TryingRequestHandler{ request in
-  guard let param = request.params[":remote"],
-        param.contains(".json"),
-        let remote = param.split(separator: ".").first else { return .notFound }
-    let r = try lirc.remote(named: String(remote))
+server.GET["/remotes/:remote.json"] = LoggingRequestHandler(TryingRequestHandler { request in
+  guard let param = request.params[":remote.json"],
+    param.contains(".json"),
+    let remote = param.split(separator: ".").first else { return .notFound }
+  let r = try lirc.remote(named: String(remote))
   return .ok(.text(r.commands.map({ $0.name }).json))
 })
-
-
-server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
-server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
-server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.stop))
-server.GET["/macros.json"]    = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
 
 // TODO:  Support more complex macro's, i.e. count
 server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { request in
@@ -59,13 +63,9 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
       try lirc.remote(named: step[0]).command(step[1]).send()
     }
   }
-  
   return .ok(.text("OK"))
 })
 
-server.GET["/"]               = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
-server["js/compiled/:path"]   = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
-server["css/compiled/:path"]  = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
 
 let semaphore = DispatchSemaphore(value: 0)
 do {
