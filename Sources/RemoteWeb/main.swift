@@ -57,7 +57,7 @@ server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { req
   guard let macroParam = request.params[":macro"],
         let macro = RemoteConfig.macros[macroParam] else { return .notFound }
   if macro.count == 1 {
-    try lirc.remote(named: macro[0][0]).sendCommandGroup(Array(macro[0].dropFirst()))
+    try lirc.remote(named: macro[0][0]).sendCommandGroup(Array(macro[0].dropFirst()), waitForReply: true)
   } else {
     for step in macro {
       if step[0] == "delay" {
