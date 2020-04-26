@@ -15,8 +15,8 @@
         "repositoryURL": "git@github.com:apocolipse/SwiftLIRC.git",
         "state": {
           "branch": null,
-          "revision": "5b8a153a3711894960aa6f8d2cca5279f70ca1c1",
-          "version": "0.2.7"
+          "revision": "e938694aa5c243f3af2f6e2ec2ca63315c033def",
+          "version": "0.2.9"
         }
       }
     ]

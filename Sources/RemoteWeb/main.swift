@@ -7,12 +7,12 @@ let server = HttpServer()
 var cachedRemotes: String = ""
 let commandQueue = DispatchQueue.global(qos: .background)
 
-let lirc = LIRC(host: "10.0.0.10", port: 8765)
+let lirc = LIRC()
 
 // Setup routes, short ones first
 server.GET["/"]                                     = LoggingRequestHandler(RemoteTemplates.index(with: lirc.allRemotes))
-server.GET["js/compiled/:path"]                     = LoggingRequestHandler(shareFilesFromDirectory("/Users/apocolipse/Code/RemoteWeb/compiled")) // TODO: FIXME
-server.GET["css/compiled/:path"]                    = LoggingRequestHandler(shareFilesFromDirectory("/Users/apocolipse/Code/RemoteWeb/compiled")) // TODO: FIXME
+server.GET["js/compiled/:path"]                     = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
+server.GET["css/compiled/:path"]                    = LoggingRequestHandler(shareFilesFromDirectory("/var/lib/lirc_web/compiled")) // TODO: FIXME
 server.GET["/macros.json"]                          = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
 server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
 server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
@@ -56,11 +56,15 @@ server.GET["/remotes/:remote.json"] = LoggingRequestHandler(TryingRequestHandler
 server.POST["/macros/:macro"] = LoggingRequestHandler(TryingRequestHandler { request in
   guard let macroParam = request.params[":macro"],
         let macro = RemoteConfig.macros[macroParam] else { return .notFound }
-  for step in macro {
-    if step[0] == "delay" {
-      usleep((UInt32(step[1]) ?? 1) * 1000)
-    } else {
-      try lirc.remote(named: step[0]).command(step[1]).send()
+  if macro.count == 1 {
+    try lirc.remote(named: macro[0][0]).sendCommandGroup(Array(macro[0].dropFirst()))
+  } else {
+    for step in macro {
+      if step[0] == "delay" {
+        usleep((UInt32(step[1]) ?? 1) * 1000)
+      } else {
+        try lirc.remote(named: step[0]).command(step[1]).send()
+      }
     }
   }
   return .ok(.text("OK"))
@@ -76,4 +80,3 @@ do {
   print("Server error: \(error)")
   semaphore.signal()
 }
-
