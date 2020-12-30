@@ -16,7 +16,7 @@ server.GET["css/compiled/:path"]                    = LoggingRequestHandler(shar
 server.GET["/macros.json"]                          = LoggingRequestHandler({ _ in .ok(.text(RemoteConfig.macros.json)) })
 server.POST["/remotes/:remote/:command"]            = LoggingRequestHandler(SendCommandHandler(.once))
 server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.start))
-server.POST["/remotes/:remote/:command/send_start"] = LoggingRequestHandler(SendCommandHandler(.stop))
+server.POST["/remotes/:remote/:command/send_stop"]  = LoggingRequestHandler(SendCommandHandler(.stop))
 
 //
 server.GET["/remotes.json"] = LoggingRequestHandler { request in
